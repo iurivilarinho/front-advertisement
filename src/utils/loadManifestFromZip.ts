@@ -37,7 +37,7 @@ export async function pickZipAndLoadManifest(): Promise<{
 }> {
   console.log("[env] isTauri:", isTauri());
 
-  const zipPath = "C:\\Users\\iuri\\Downloads\\22-02-2026.zip";
+  const zipPath = "C:\\Users\\IuriSouza\\Downloads\\23-02-2026.zip";
   console.log("[ads] zipPath:", zipPath);
 
   const zipBytes = await readFile(zipPath);

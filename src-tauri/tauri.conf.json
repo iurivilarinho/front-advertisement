@@ -17,7 +17,7 @@
         "height": 600,
         "resizable": false,
         "fullscreen": false,
-        "decorations": false,
+        "decorations": true,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true
@@ -53,7 +53,7 @@
             "fs:allow-mkdir",
             {
               "identifier": "fs:scope",
-              "allow": ["C:/Users/iuri/Downloads/**", "$APPDATA/**"]
+              "allow": ["C:/Users/IuriSouza/Downloads/**", "$APPDATA/**"]
             }
           ]
         }

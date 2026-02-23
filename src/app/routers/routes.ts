@@ -1,0 +1,17 @@
+export const ROUTES = {
+  login: "/login",
+  homepage: "/",
+  player: "/player",
+  checklists: "/checklists",
+  advertisementForm: "/advertisement",
+  clients: "/clientes",
+  clientForm: "/clientes/:formType/:id?",
+  environments: "/ambientes",
+  environmentForm: "/ambientes/:formType/:id?",
+  assets: "/objetos",
+  users: "/usuarios",
+  userForm: "/usuarios/:formType/:id?",
+  roles: "/perfis",
+  permissions: "/permissoes",
+  notFound: "*",
+} as const;
