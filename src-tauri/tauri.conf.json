@@ -25,6 +25,10 @@
     ],
     "security": {
       "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**"]
+      },
       "capabilities": [
         {
           "identifier": "default",
@@ -41,7 +45,16 @@
             "core:window:allow-set-focus",
             "core:window:allow-maximize",
             "core:window:allow-unmaximize",
-            "core:window:allow-set-skip-taskbar"
+            "core:window:allow-set-skip-taskbar",
+            "core:default",
+            "fs:default",
+            "fs:read-all",
+            "fs:write-all",
+            "fs:allow-mkdir",
+            {
+              "identifier": "fs:scope",
+              "allow": ["C:/Users/iuri/Downloads/**", "$APPDATA/**"]
+            }
           ]
         }
       ]

@@ -1,99 +1,81 @@
-import { useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useEffect, useState } from "react";
 
 type Props = {
-  showSeconds?: number;
+  showSeconds: number;
   intervalMinutes?: number;
   fullscreen?: boolean;
-  children: React.ReactNode;
+  children: (visible: boolean) => React.ReactNode;
 };
 
-function sleep(ms: number) {
-  return new Promise<void>((r) => setTimeout(r, ms));
-}
-
 export default function OverlayController({
-  showSeconds = 15,
+  showSeconds,
   intervalMinutes = 0.5,
   fullscreen = true,
   children,
 }: Props) {
-  useEffect(() => {
-    const showMs = showSeconds * 1000;
-    const cycleMs = Math.max(intervalMinutes * 60_000, showMs + 1000);
+  const [visible, setVisible] = useState(false);
 
-    let running = true;
+  useEffect(() => {
+    const showMs = Math.max(0, showSeconds) * 1000;
+    const intervalMs = Math.max(0, intervalMinutes) * 60_000;
+
+    const w = getCurrentWindow();
+    const abort = new AbortController();
+    const { signal } = abort;
+
+    const sleepAbortable = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const id = window.setTimeout(resolve, ms);
+        signal.addEventListener(
+          "abort",
+          () => {
+            window.clearTimeout(id);
+            resolve();
+          },
+          { once: true },
+        );
+      });
 
     const showOverlay = async () => {
-      const w = getCurrentWindow();
-
-      // salva quem estava em foco (Chrome/Edge)
       await invoke("save_foreground_window");
-
       await w.setAlwaysOnTop(true);
       await w.setDecorations(false);
-
       await w.show();
       await w.unminimize();
-
-      if (fullscreen) {
-        await w.setFullscreen(true);
-      } else {
-        await w.maximize();
-      }
-
+      if (fullscreen) await w.setFullscreen(true);
+      else await w.maximize();
       await w.setFocus().catch(() => {});
+      setVisible(true);
     };
 
     const hideOverlay = async () => {
-      const w = getCurrentWindow();
-
-      // importante: sair de fullscreen ANTES de esconder
+      setVisible(false);
       await w.setFullscreen(false).catch(() => {});
-
       await w.hide();
-
-      // devolve foco ao navegador
       await invoke("restore_foreground_window");
     };
 
-    const loop = async () => {
-      while (running) {
+    (async () => {
+      while (!signal.aborted) {
         await showOverlay().catch(console.error);
-        await sleep(showMs);
+        await sleepAbortable(showMs);
+        if (signal.aborted) break;
+
         await hideOverlay().catch(console.error);
-        await sleep(Math.max(0, cycleMs - showMs));
+        await sleepAbortable(intervalMs);
       }
-    };
+    })();
 
-    loop();
-
-    const escHandler = async (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        running = false;
-        await hideOverlay().catch(() => {});
-      }
-    };
-
-    window.addEventListener("keydown", escHandler);
-
-    return () => {
-      running = false;
-      window.removeEventListener("keydown", escHandler);
-    };
+    return () => abort.abort();
   }, [showSeconds, intervalMinutes, fullscreen]);
 
   return (
     <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0)",
-        pointerEvents: "none",
-      }}
+      style={{ width: "100vw", height: "100vh", background: "rgba(0,0,0,0)" }}
     >
-      {children}
+      {children(visible)}
     </div>
   );
 }
