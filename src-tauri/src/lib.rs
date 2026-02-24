@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 use tauri::State;
-
+use tauri::{Manager};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use windows_sys::Win32::Foundation::HWND;
 use windows_sys::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -55,6 +57,63 @@ pub fn run() {
       restore_foreground_window
     ])
     .setup(|app| {
+
+ let show = MenuItem::with_id(app, "tray_show", "Mostrar", true, None::<&str>)?;
+      let hide = MenuItem::with_id(app, "tray_hide", "Esconder", true, None::<&str>)?;
+      let quit = MenuItem::with_id(app, "tray_quit", "Sair", true, None::<&str>)?;
+      let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+
+      let icon = app.default_window_icon().cloned();
+
+
+let _tray = TrayIconBuilder::new()
+        .menu(&menu)
+        .icon(icon.unwrap())
+        .on_menu_event(|app, event| {
+          let window = app.get_webview_window("main");
+          match event.id().as_ref() {
+            "tray_show" => {
+              if let Some(w) = window {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+              }
+            }
+            "tray_hide" => {
+              if let Some(w) = window {
+                let _ = w.hide();
+              }
+            }
+            "tray_quit" => {
+              app.exit(0);
+            }
+            _ => {}
+          }
+        })
+        .on_tray_icon_event(|tray, event| {
+          // clique esquerdo no ícone -> alterna mostrar/esconder
+          if let TrayIconEvent::Click { button, button_state, .. } = event {
+            if button == tauri::tray::MouseButton::Left
+              && button_state == tauri::tray::MouseButtonState::Up
+            {
+              let app = tray.app_handle();
+              if let Some(w) = app.get_webview_window("main") {
+                let is_visible = w.is_visible().unwrap_or(false);
+                if is_visible {
+                  let _ = w.hide();
+                } else {
+                  let _ = w.show();
+                  let _ = w.unminimize();
+                  let _ = w.set_focus();
+                }
+              }
+            }
+          }
+        })
+        .build(app)?;
+
+
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()

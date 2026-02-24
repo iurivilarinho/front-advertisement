@@ -1,4 +1,3 @@
-import type { ClientApiDTO } from "./client";
 import type { DocumentMetadataApiDTO } from "./document";
 import type { JobPositionApiDTO } from "./jobPosition";
 import type { RoleApiDTO } from "./role";
@@ -23,6 +22,5 @@ export interface UserApiDTO {
   jobPosition?: JobPositionApiDTO;
   roles?: RoleApiDTO[];
   perfis?: RoleApiDTO[]; // API tem que ajustar o nome pra "roles"
-  companyBranch?: ClientApiDTO;
   image?: DocumentMetadataApiDTO;
 }

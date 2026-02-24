@@ -1,6 +1,7 @@
 import { ChevronRight, ChevronsUpDown, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { Avatar, AvatarFallback } from "../avatar/Avatar";
+import { useAuth } from "../../app/provider/AuthProvider";
+import { useIsMobile } from "../../hooks/useIsMobile";
 import {
   Collapsible,
   CollapsibleContent,
@@ -27,12 +28,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "./Sidebar";
-import { useIsMobile } from "../../hooks/useIsMobile";
-import { useAuth } from "../../app/provider/AuthProvider";
-import {
-  getFirstAndLastWord,
-  getInitials,
-} from "../../utils/string/formatters";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();

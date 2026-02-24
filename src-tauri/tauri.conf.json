@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "yt-overlay",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.lis.advertisement",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -27,12 +27,16 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/**"]
+        "scope": [
+          "$APPDATA/**"
+        ]
       },
       "capabilities": [
         {
           "identifier": "default",
-          "windows": ["main"],
+          "windows": [
+            "main"
+          ],
           "permissions": [
             "core:window:allow-show",
             "core:window:allow-hide",
@@ -53,7 +57,10 @@
             "fs:allow-mkdir",
             {
               "identifier": "fs:scope",
-              "allow": ["C:/Users/IuriSouza/Downloads/**", "$APPDATA/**"]
+              "allow": [
+                "C:/Users/IuriSouza/Downloads/**",
+                "$APPDATA/**"
+              ]
             }
           ]
         }

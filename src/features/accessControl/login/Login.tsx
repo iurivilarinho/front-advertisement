@@ -16,13 +16,13 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-} from "../../../components/button/input/Field";
-import { Input } from "../../../components/button/input/Input";
+} from "../../../components/input/Field";
+import { Input } from "../../../components/input/Input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
-} from "../../../components/button/input/InputGroup";
+} from "../../../components/input/InputGroup";
 import { Button } from "../../../components/button/button";
 import { useAuth } from "../../../app/provider/AuthProvider";
 import { Spinner } from "../../../components/spinner/Spinner";

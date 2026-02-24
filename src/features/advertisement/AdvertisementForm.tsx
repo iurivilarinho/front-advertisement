@@ -1,7 +1,11 @@
 // src/pages/advertisements/AdvertisementForm.tsx
+// Alterações:
+// - customerId: Combobox (lista de clientes)
+// - type: Select (Imagem/Vídeo)
+// - allowedDays: Select múltiplo (dias da semana) -> mantém string CSV no form
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 import { z } from "zod";
@@ -25,17 +29,42 @@ import {
   useUpdateAdvertisementImage,
 } from "../../api/services/useAdvertisementService";
 import { Input } from "../../components/input/Input";
+import { Checkbox } from "../../components/input/Checkbox";
+import { AdvertisementVideoFields } from "./AdvertisementVideoFields";
+import { AdvertisementImagesSection } from "./AdvertisementImagesSection";
 
-/**
- * Observações:
- * - allowedDays no backend é Set<DayOfWeek>. Aqui usamos string no form e convertemos para string[] no submit.
- * - O endpoint é multipart/form-data. O service monta FormData.
- * - Itens (imagens) só aparecem no modo edição, igual ao padrão do Checklist.
- */
+// === Select ===
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/input/Select";
+
+// === Combobox (mesmo padrão do seu exemplo) ===
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "../../components/input/Combobox";
+
+// ⚠️ Ajuste para o seu service real
+import { useGetCustomers } from "../../api/services/useCustomerService";
+import type { CustomerApiDTO } from "../../api/dtos/customer";
+import { useDebounce } from "../../hooks/useDebounce";
 
 const advertisementTypeSchema = z.enum(["IMAGE", "VIDEO"], {
   message: "Informe o tipo do anúncio",
 });
+
 const dayListSchema = z
   .string()
   .min(1, "Informe os dias permitidos")
@@ -101,7 +130,7 @@ export const advertisementFormSchema = z
       .min(1, "Informe o nome do anúncio")
       .max(200, "Máximo de 200 caracteres"),
     type: advertisementTypeSchema,
-    active: z.boolean().optional(),
+    active: z.boolean(),
     validFrom: z.string().min(1, "Informe a data de início (YYYY-MM-DD)"),
     validTo: z.string().min(1, "Informe a data de fim (YYYY-MM-DD)"),
     maxShowsPerDay: z
@@ -163,6 +192,16 @@ type RouteParams = {
   id?: string;
 };
 
+const DAY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "MONDAY", label: "Segunda" },
+  { value: "TUESDAY", label: "Terça" },
+  { value: "WEDNESDAY", label: "Quarta" },
+  { value: "THURSDAY", label: "Quinta" },
+  { value: "FRIDAY", label: "Sexta" },
+  { value: "SATURDAY", label: "Sábado" },
+  { value: "SUNDAY", label: "Domingo" },
+];
+
 export const AdvertisementForm = () => {
   const { formType, id } = useParams<RouteParams>();
   const isEditMode = formType === "editar" && !!id;
@@ -179,11 +218,9 @@ export const AdvertisementForm = () => {
       maxShowsPerDay: "0",
       allowedDays: "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY,SATURDAY,SUNDAY",
       showSocialAtEnd: false,
-
       videoUrl: "",
       videoDurationSeconds: "",
       video: undefined,
-
       images: [],
     },
   });
@@ -199,12 +236,61 @@ export const AdvertisementForm = () => {
     setValue,
   } = form;
 
-  const { fields, append, remove } = useFieldArray({
+  const imagesFieldArray = useFieldArray({
     control,
     name: "images",
   });
 
   const currentType = watch("type");
+
+  // === CUSTOMER combobox state ===
+  const customersAnchor = useComboboxAnchor();
+  const [customerSearch, setCustomerSearch] = useState("");
+  const debouncedCustomerSearch = useDebounce(customerSearch);
+
+  // ⚠️ Ajuste para seu endpoint real
+  const customersQuery = useGetCustomers({
+    page: 0,
+    size: 20,
+    search: debouncedCustomerSearch?.trim()
+      ? debouncedCustomerSearch.trim()
+      : undefined,
+
+    sort: [{ by: "name", direction: "asc" }],
+  });
+
+  const customers = customersQuery.data?.content ?? [];
+
+  const selectedCustomerId = watch("customerId");
+  const selectedCustomer = useMemo(() => {
+    const idNum = Number(selectedCustomerId);
+    if (!idNum) return undefined;
+    return customers.find((c: CustomerApiDTO) => c.id === idNum);
+  }, [customers, selectedCustomerId]);
+
+  // === allowedDays helpers (mantém string CSV no form) ===
+  const allowedDaysCsv = watch("allowedDays") ?? "";
+  const allowedDaysSet = useMemo(() => {
+    return new Set(
+      allowedDaysCsv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }, [allowedDaysCsv]);
+
+  const toggleDay = (day: string) => {
+    const next = new Set(allowedDaysSet);
+    if (next.has(day)) next.delete(day);
+    else next.add(day);
+
+    const csv = Array.from(next).join(",");
+    setValue("allowedDays", csv, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
 
   const { mutateAsync: createAdvertisement } = useCreateAdvertisement();
   const { data: advertisementData } = useGetAdvertisementById(
@@ -212,7 +298,6 @@ export const AdvertisementForm = () => {
   );
   const { mutateAsync: updateAdvertisement } = useUpdateAdvertisement();
 
-  // itens (imagens) no modo edição, igual Checklist
   const { mutateAsync: updateAdvertisementImage } =
     useUpdateAdvertisementImage();
   const { mutateAsync: createAdvertisementImage } = useAddAdvertisementImage();
@@ -247,7 +332,6 @@ export const AdvertisementForm = () => {
     if (!isEditMode) {
       await createAdvertisement({
         ...headerPayload,
-        // cria já com imagens se type=IMAGE
         images:
           data.type === "IMAGE"
             ? (data.images ?? []).map((img) => ({
@@ -334,7 +418,6 @@ export const AdvertisementForm = () => {
   }, [advertisementData, reset]);
 
   useEffect(() => {
-    // Limpa campos específicos quando troca tipo para evitar validação/confusão
     if (currentType === "VIDEO") {
       setValue("images", []);
     } else {
@@ -345,47 +428,131 @@ export const AdvertisementForm = () => {
   }, [currentType, setValue]);
 
   return (
-    <div className="w-full h-full py-10">
+    <div className="w-full h-full py-10 px-20">
       <form onSubmit={handleSubmit(onSubmit)}>
         <FieldGroup className="space-y-8 bg">
-          {/* ====== CABEÇALHO ====== */}
           <FieldSet>
             <FieldLegend>Advertisement</FieldLegend>
             <FieldDescription>Dados do cabeçalho do anúncio</FieldDescription>
 
             <div className="grid grid-cols-3 gap-6">
+              {/* CLIENTE (COMBOBOX) */}
               <Field className="col-span-1">
-                <FieldLabel>Cliente (ID)</FieldLabel>
-                <Input {...register("customerId")} />
+                <FieldLabel>Cliente</FieldLabel>
+
+                <Combobox
+                  items={customers}
+                  onValueChange={(customer: CustomerApiDTO | null) =>
+                    setValue(
+                      "customerId",
+                      customer ? String(customer.id) : "",
+                      {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      },
+                    )
+                  }
+                  itemToStringLabel={(c: CustomerApiDTO) => c.name}
+                >
+                  <div ref={customersAnchor}>
+                    <ComboboxTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-between font-normal w-full"
+                        >
+                          <ComboboxValue>
+                            {selectedCustomer?.name ?? "Selecione um cliente"}
+                          </ComboboxValue>
+                        </Button>
+                      }
+                    />
+                  </div>
+
+                  <ComboboxContent anchor={customersAnchor}>
+                    <ComboboxInput
+                      placeholder="Buscar cliente..."
+                      value={customerSearch}
+                      onChange={(e) => setCustomerSearch(e.currentTarget.value)}
+                      showTrigger={false}
+                    />
+
+                    <ComboboxEmpty>
+                      {customersQuery.isFetching
+                        ? "Buscando..."
+                        : "Nenhum cliente encontrado"}
+                    </ComboboxEmpty>
+
+                    <ComboboxList>
+                      {(c: CustomerApiDTO) => (
+                        <ComboboxItem key={c.id} value={c}>
+                          {c.name}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+
                 {errors.customerId && (
                   <FieldError>{errors.customerId.message}</FieldError>
                 )}
               </Field>
 
+              {/* NOME */}
               <Field className="col-span-2">
                 <FieldLabel>Nome</FieldLabel>
                 <Input {...register("name")} />
                 {errors.name && <FieldError>{errors.name.message}</FieldError>}
               </Field>
 
+              {/* TIPO (SELECT) */}
               <Field className="col-span-1">
                 <FieldLabel>Tipo</FieldLabel>
-                <Input placeholder="IMAGE ou VIDEO" {...register("type")} />
+                <Select
+                  value={currentType}
+                  onValueChange={(v) =>
+                    setValue("type", v as "IMAGE" | "VIDEO", {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="IMAGE">Imagem</SelectItem>
+                      <SelectItem value="VIDEO">Vídeo</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+
                 {errors.type && <FieldError>{errors.type.message}</FieldError>}
               </Field>
 
+              {/* ATIVO */}
               <Field className="col-span-1">
                 <FieldLabel>Ativo</FieldLabel>
-                <Input
-                  type="checkbox"
-                  checked={!!watch("active")}
-                  onChange={(e) => setValue("active", e.target.checked)}
+                <Checkbox
+                  checked={watch("active")}
+                  onCheckedChange={(value) =>
+                    setValue("active", value === true, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    })
+                  }
                 />
                 {errors.active && (
                   <FieldError>{String(errors.active.message)}</FieldError>
                 )}
               </Field>
 
+              {/* DATAS */}
               <Field className="col-span-1">
                 <FieldLabel>Início (YYYY-MM-DD)</FieldLabel>
                 <Input {...register("validFrom")} />
@@ -402,6 +569,7 @@ export const AdvertisementForm = () => {
                 )}
               </Field>
 
+              {/* MAX SHOWS */}
               <Field className="col-span-1">
                 <FieldLabel>Máx. exibições/dia</FieldLabel>
                 <Input {...register("maxShowsPerDay")} />
@@ -410,24 +578,48 @@ export const AdvertisementForm = () => {
                 )}
               </Field>
 
+              {/* DIAS PERMITIDOS (MULTISELECT) */}
               <Field className="col-span-2">
                 <FieldLabel>Dias permitidos</FieldLabel>
-                <Input
-                  placeholder="MONDAY,TUESDAY,..."
-                  {...register("allowedDays")}
-                />
+
+                <div className="flex flex-wrap gap-2 rounded-md border p-2">
+                  {DAY_OPTIONS.map((d) => {
+                    const checked = allowedDaysSet.has(d.value);
+                    return (
+                      <label
+                        key={d.value}
+                        className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDay(d.value)}
+                        />
+                        <span>{d.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {/* Mantém o campo registrado (string CSV) */}
+                <input type="hidden" {...register("allowedDays")} />
+
                 {errors.allowedDays && (
                   <FieldError>{errors.allowedDays.message}</FieldError>
                 )}
               </Field>
 
+              {/* SOCIAL */}
               <Field className="col-span-1">
                 <FieldLabel>Exibir redes sociais ao final</FieldLabel>
-                <Input
-                  type="checkbox"
-                  checked={!!watch("showSocialAtEnd")}
-                  onChange={(e) =>
-                    setValue("showSocialAtEnd", e.target.checked)
+                <Checkbox
+                  checked={watch("showSocialAtEnd")}
+                  onCheckedChange={(value) =>
+                    setValue("showSocialAtEnd", value === true, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    })
                   }
                 />
                 {errors.showSocialAtEnd && (
@@ -439,110 +631,25 @@ export const AdvertisementForm = () => {
             </div>
           </FieldSet>
 
-          <FieldSeparator />
+          {currentType === "VIDEO" && <AdvertisementVideoFields form={form} />}
 
-          {/* ====== VIDEO (CABEÇALHO) ====== */}
-          {currentType === "VIDEO" && (
-            <FieldSet>
-              <FieldLegend>Vídeo</FieldLegend>
-              <FieldDescription>Dados do vídeo do anúncio</FieldDescription>
-
-              <div className="grid grid-cols-3 gap-6">
-                <Field className="col-span-2">
-                  <FieldLabel>URL do vídeo</FieldLabel>
-                  <Input {...register("videoUrl")} />
-                  {errors.videoUrl && (
-                    <FieldError>{errors.videoUrl.message}</FieldError>
-                  )}
-                </Field>
-
-                <Field className="col-span-1">
-                  <FieldLabel>Duração (segundos)</FieldLabel>
-                  <Input {...register("videoDurationSeconds")} />
-                  {errors.videoDurationSeconds && (
-                    <FieldError>
-                      {errors.videoDurationSeconds.message}
-                    </FieldError>
-                  )}
-                </Field>
-
-                <Field className="col-span-3">
-                  <FieldLabel>Arquivo de vídeo (opcional)</FieldLabel>
-                  <Input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setValue("video", e.target.files?.[0])}
-                  />
-                  {errors.video && (
-                    <FieldError>{String(errors.video.message)}</FieldError>
-                  )}
-                </Field>
-              </div>
-            </FieldSet>
-          )}
-
-          {/* ====== ITENS (IMAGENS) - SÓ EM EDIÇÃO ====== */}
-          {isEditMode && currentType === "IMAGE" && (
-            <>
-              <FieldSeparator />
-
-              <FieldSet>
-                <FieldLegend>Imagens</FieldLegend>
-                <FieldDescription>
-                  Cadastre as imagens do anúncio
-                </FieldDescription>
-
-                <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      onClick={() =>
-                        append({
-                          imageUrl: "",
-                          displaySeconds: "5",
-                          orderIndex: String(fields.length),
-                        })
-                      }
-                    >
-                      Adicionar imagem
-                    </Button>
-                  </div>
-
-                  {(errors.images as any)?.message && (
-                    <FieldError>{(errors.images as any)?.message}</FieldError>
-                  )}
-
-                  {fields.length === 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      Nenhuma imagem cadastrada ainda.
-                    </div>
-                  )}
-
-                  {fields.map((f, index) => (
-                    <AdvertisementImageFields
-                      key={f.id}
-                      form={form}
-                      index={index}
-                      onRemove={async () => {
-                        const imageId = getValues(`images.${index}.id`);
-                        if (imageId && id) {
-                          await deleteAdvertisementImage({
-                            advertisementId: Number(id),
-                            imageId,
-                          });
-                        }
-                        remove(index);
-                      }}
-                    />
-                  ))}
-                </div>
-              </FieldSet>
-            </>
+          {currentType === "IMAGE" && (
+            <AdvertisementImagesSection
+              form={form}
+              fieldArray={imagesFieldArray}
+              advertisementId={id ? Number(id) : undefined}
+              onDeleteImageById={async (imageId) => {
+                if (!id) return;
+                await deleteAdvertisementImage({
+                  advertisementId: Number(id),
+                  imageId,
+                });
+              }}
+            />
           )}
 
           <FieldSeparator />
 
-          {/* ====== AÇÕES ====== */}
           <Field orientation="horizontal" className="justify-end gap-2">
             <Button asChild variant="outline" type="button">
               <Link to="/advertisements">Cancelar</Link>
@@ -555,77 +662,5 @@ export const AdvertisementForm = () => {
         </FieldGroup>
       </form>
     </div>
-  );
-};
-
-type AdvertisementImageFieldsProps = {
-  form: ReturnType<typeof useForm<AdvertisementFormSchema>>;
-  index: number;
-  onRemove: () => Promise<void>;
-};
-
-const AdvertisementImageFields = ({
-  form,
-  index,
-  onRemove,
-}: AdvertisementImageFieldsProps) => {
-  const {
-    register,
-    setValue,
-    formState: { errors },
-  } = form;
-
-  const imgErrors = (errors.images?.[index] ?? {}) as any;
-
-  return (
-    <FieldSet>
-      <FieldLegend>Imagem #{index + 1}</FieldLegend>
-
-      <div className="grid grid-cols-3 gap-6">
-        <Field className="col-span-2">
-          <FieldLabel>URL da imagem (opcional)</FieldLabel>
-          <Input {...register(`images.${index}.imageUrl` as const)} />
-          {imgErrors.imageUrl && (
-            <FieldError>{imgErrors.imageUrl.message}</FieldError>
-          )}
-        </Field>
-
-        <Field className="col-span-1">
-          <FieldLabel>Tempo (segundos)</FieldLabel>
-          <Input {...register(`images.${index}.displaySeconds` as const)} />
-          {imgErrors.displaySeconds && (
-            <FieldError>{imgErrors.displaySeconds.message}</FieldError>
-          )}
-        </Field>
-
-        <Field className="col-span-1">
-          <FieldLabel>Ordem</FieldLabel>
-          <Input {...register(`images.${index}.orderIndex` as const)} />
-          {imgErrors.orderIndex && (
-            <FieldError>{imgErrors.orderIndex.message}</FieldError>
-          )}
-        </Field>
-
-        <Field className="col-span-2">
-          <FieldLabel>Arquivo (opcional)</FieldLabel>
-          <Input
-            type="file"
-            accept="image/*"
-            onChange={(e) =>
-              setValue(`images.${index}.image`, e.target.files?.[0])
-            }
-          />
-          {imgErrors.image && (
-            <FieldError>{String(imgErrors.image.message)}</FieldError>
-          )}
-        </Field>
-
-        <Field className="col-span-3 flex justify-end">
-          <Button type="button" variant="outline" onClick={() => onRemove()}>
-            Remover
-          </Button>
-        </Field>
-      </div>
-    </FieldSet>
   );
 };
