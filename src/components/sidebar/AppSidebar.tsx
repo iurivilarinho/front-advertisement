@@ -1,45 +1,33 @@
-import { ChevronRight, ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../app/provider/AuthProvider";
+// import { useAuth } from "../../app/provider/AuthProvider";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../collapsible/Collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../dropdown/Dropdown";
 import { menus } from "./menus";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarMenuItem
 } from "./Sidebar";
 
 export const AppSidebar = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { user, logout } = useAuth();
+  // const { user, logout } = useAuth();
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate("/login");
-    } catch (error) {}
-  };
+  // const handleLogout = async () => {
+  //   try {
+  //     await logout();
+  //     navigate("/login");
+  //   } catch (error) {}
+  // };
 
   return (
     <Sidebar collapsible="icon">
@@ -66,7 +54,7 @@ export const AppSidebar = () => {
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <SidebarMenuSub>
+                      {/* <SidebarMenuSub>
                         {menu.subMenus.map((subMenu) => (
                           <SidebarMenuSubItem key={subMenu.title}>
                             <SidebarMenuSubButton asChild>
@@ -76,7 +64,7 @@ export const AppSidebar = () => {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
-                      </SidebarMenuSub>
+                      </SidebarMenuSub> */}
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
@@ -98,7 +86,7 @@ export const AppSidebar = () => {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+    { /*  <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
@@ -111,7 +99,7 @@ export const AppSidebar = () => {
                     <AvatarFallback>
                       {getInitials(getFirstAndLastWord(user?.name || ""))}
                     </AvatarFallback>
-                  </Avatar> */}
+                  </Avatar> 
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-medium">
                       {user?.name ?? "Usuário Anônimo"}
@@ -135,7 +123,7 @@ export const AppSidebar = () => {
                       <AvatarFallback>
                         {getInitials(getFirstAndLastWord(user?.name || ""))}
                       </AvatarFallback>
-                    </Avatar> */}
+                    </Avatar> 
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">
                         {user?.name ?? "Usuário Anônimo"}
@@ -158,7 +146,7 @@ export const AppSidebar = () => {
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarFooter>
+      </SidebarFooter>*/}
     </Sidebar>
   );
 };

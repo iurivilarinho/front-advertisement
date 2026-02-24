@@ -11,6 +11,7 @@ import {
 } from "../../components/input/Field";
 import { Input } from "../../components/input/Input";
 import type { AdvertisementFormSchema } from "./AdvertisementForm";
+import { Separator } from "../../components/separator/Separator";
 
 type Props = {
   form: UseFormReturn<AdvertisementFormSchema>;
@@ -29,6 +30,7 @@ export const AdvertisementImageFields = ({ form, index, onRemove }: Props) => {
 
   return (
     <FieldSet>
+      <Separator/>
       <FieldLegend>Imagem #{index + 1}</FieldLegend>
 
       <div className="grid grid-cols-3 gap-6">

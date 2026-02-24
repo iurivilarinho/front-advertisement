@@ -58,8 +58,12 @@
             {
               "identifier": "fs:scope",
               "allow": [
-                "C:/Users/IuriSouza/Downloads/**",
-                "$APPDATA/**"
+                "$HOME/**",
+                "$DOWNLOAD/**",
+                "$DOCUMENT/**",
+                "$DESKTOP/**",
+                "$APPDATA/**",
+                "$APPLOCALDATA/**"
               ]
             }
           ]

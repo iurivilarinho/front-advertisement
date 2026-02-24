@@ -1,5 +1,5 @@
 import { Route, Routes } from "react-router-dom";
-import { ProtectedRoute } from "./ProtectedRoute";
+// import { ProtectedRoute } from "./ProtectedRoute";
 import { ROUTES } from "./routes";
 import { AdvertisementForm } from "../../features/advertisement/AdvertisementForm";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -13,12 +13,14 @@ export const AppRoutes = () => (
       <Route path={ROUTES.login} element={<Login />} />
     </Route> */}
 
-    <Route element={<ProtectedRoute />}>
+    {/* <Route element={<ProtectedRoute />}> */}
+    <Route >
       <Route element={<MainLayout />}>
         <Route path={ROUTES.homepage} element={<PlayAdvertisement />} />
         <Route
+
           path={ROUTES.advertisementForm}
-          element={<AdvertisementForm />}
+          element={<AdvertisementForm />} 
         />
 
         {/* <Route path={ROUTES.checklists} element={<Checklists />} />

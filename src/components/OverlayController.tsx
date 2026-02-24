@@ -1,12 +1,15 @@
+// OverlayController.tsx
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+type ExitMode = "toApp" | "toDesktop";
 
 type Props = {
   showSeconds: number;
   intervalMinutes?: number;
   fullscreen?: boolean;
-  children: (visible: boolean) => React.ReactNode;
+  children: (visible: boolean, exit: (mode?: ExitMode) => Promise<void>) => React.ReactNode;
 };
 
 export default function OverlayController({
@@ -16,6 +19,7 @@ export default function OverlayController({
   children,
 }: Props) {
   const [visible, setVisible] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const showMs = Math.max(0, showSeconds) * 1000;
@@ -23,6 +27,7 @@ export default function OverlayController({
 
     const w = getCurrentWindow();
     const abort = new AbortController();
+    abortRef.current = abort;
     const { signal } = abort;
 
     const sleepAbortable = (ms: number) =>
@@ -71,11 +76,32 @@ export default function OverlayController({
     return () => abort.abort();
   }, [showSeconds, intervalMinutes, fullscreen]);
 
+  const exit = async (mode: ExitMode = "toApp") => {
+    abortRef.current?.abort();
+
+    const w = getCurrentWindow();
+    setVisible(false);
+
+    // volta janela para modo "normal"
+    await w.setFullscreen(false).catch(() => {});
+    await w.setAlwaysOnTop(false).catch(() => {});
+    await w.setDecorations(true).catch(() => {});
+    await w.unmaximize().catch(() => {});
+
+    if (mode === "toDesktop") {
+      await w.hide().catch(() => {});
+      await invoke("restore_foreground_window").catch(() => {});
+      return;
+    }
+
+    // ✅ fica visível e focada para ver a rota Play
+    await w.show().catch(() => {});
+    await w.setFocus().catch(() => {});
+  };
+
   return (
-    <div
-      style={{ width: "100vw", height: "100vh", background: "rgba(0,0,0,0)" }}
-    >
-      {children(visible)}
+    <div style={{ width: "100vw", height: "100vh", background: "rgba(0,0,0,0)" }}>
+      {children(visible, exit)}
     </div>
   );
 }

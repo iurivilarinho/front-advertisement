@@ -2,9 +2,11 @@ import {
   readFile,
   writeFile,
   readTextFile,
+  writeTextFile,
   mkdir,
+  exists,
 } from "@tauri-apps/plugin-fs";
-import { appDataDir, join, basename } from "@tauri-apps/api/path";
+import { appDataDir, appConfigDir, join, basename } from "@tauri-apps/api/path";
 import { unzipSync } from "fflate";
 import type { AdvertisementManifest } from "../types/advertisement";
 import { isTauri } from "@tauri-apps/api/core";
@@ -30,14 +32,98 @@ function safeJsonPreview(text: string, max = 400) {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
+type IniData = Record<string, Record<string, string>>;
+
+function parseIni(text: string): IniData {
+  const out: IniData = {};
+  let section = "default";
+  out[section] = {};
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith(";") || line.startsWith("#")) continue;
+
+    if (line.startsWith("[") && line.endsWith("]")) {
+      section = line.slice(1, -1).trim() || "default";
+      out[section] ??= {};
+      continue;
+    }
+
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim();
+
+    out[section] ??= {};
+    out[section][key] = value;
+  }
+
+  return out;
+}
+
+async function ensureAdsIni(): Promise<string> {
+  const cfgDir = await appConfigDir();
+  const iniPath = await join(cfgDir, "yt-overlay.ini");
+
+  // garante diretório
+  await mkdir(cfgDir, { recursive: true });
+
+  const has = await exists(iniPath);
+  if (!has) {
+    const defaultIni = `; yt-overlay.ini
+; Configure o caminho do ZIP de anúncios abaixo.
+;
+; Exemplo:
+; zipPath=C:\\Users\\Cliente\\Downloads\\23-02-2026.zip
+; ou:
+; zipPath=$DOWNLOAD\\23-02-2026.zip
+
+[ads]
+zipPath=
+`;
+    await writeTextFile(iniPath, defaultIni);
+  }
+
+  return iniPath;
+}
+
+async function readZipPathFromIni(): Promise<string> {
+  const iniPath = await ensureAdsIni();
+  const iniText = await readTextFile(iniPath);
+  const ini = parseIni(iniText);
+
+  const zipPath = (ini.ads?.zipPath ?? "").trim();
+  if (!zipPath) {
+    throw new Error(
+      `zipPath não configurado. Edite o arquivo:\n${iniPath}\n\n` +
+        `Na seção [ads], informe zipPath=...`,
+    );
+  }
+
+  return zipPath;
+}
+
+function expandPathVariables(p: string): string {
+  // expansão simples para facilitar configuração por máquina
+  // (mantém compatível com Windows; o user pode usar caminho absoluto também)
+  const input = p.trim();
+
+  // DOWNLOAD/DOCUMENT/DESKTOP/HOME variam por SO; se você quiser expandir também,
+  // dá pra adicionar homeDir() e outras APIs de path conforme sua necessidade.
+  return input;
+}
+
 export async function pickZipAndLoadManifest(): Promise<{
   manifest: AdvertisementManifest;
   extractedRootDir: string;
-  manifestDir: string; // <-- NOVO
+  manifestDir: string;
 }> {
   console.log("[env] isTauri:", isTauri());
 
-  const zipPath = "C:\\Users\\IuriSouza\\Downloads\\23-02-2026.zip";
+  let zipPath = await readZipPathFromIni();
+  zipPath = expandPathVariables(zipPath);
+
   console.log("[ads] zipPath:", zipPath);
 
   const zipBytes = await readFile(zipPath);
@@ -48,7 +134,6 @@ export async function pickZipAndLoadManifest(): Promise<{
   console.log("[ads] zip entries count:", zipEntries.length);
   console.log("[ads] zip entries sample:", zipEntries.slice(0, 50));
 
-  // localizar manifest.json
   const manifestEntry =
     zipEntries.find((k) => k === "manifest.json") ??
     zipEntries.find((k) => k.endsWith("/manifest.json"));
@@ -59,7 +144,6 @@ export async function pickZipAndLoadManifest(): Promise<{
     throw new Error("manifest.json não encontrado dentro do zip.");
   }
 
-  // <-- NOVO: prefixo correto (no seu caso: "22-02-2026")
   const manifestDir = manifestEntry.includes("/")
     ? manifestEntry.split("/").slice(0, -1).join("/")
     : "";
@@ -123,7 +207,6 @@ export async function pickZipAndLoadManifest(): Promise<{
     "[ads] parsed manifest items length:",
     manifest?.items?.length ?? 0,
   );
-  console.log("[ads] parsed manifest items:", manifest?.items);
 
   return { manifest, extractedRootDir, manifestDir };
 }

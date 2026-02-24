@@ -1,5 +1,5 @@
 export interface DocumentApiDTO {
-  id: number;
+  id?: number;
   name: string;
   size: number;
   contentType: string;
@@ -12,3 +12,9 @@ export interface DocumentMetadataApiDTO {
   size: number;
   contentType: string;
 }
+export type DocumentApiCreateDTO = {
+  imageUrl?: string;
+  displaySeconds: number;
+  orderIndex: number;
+  image?: File; 
+};

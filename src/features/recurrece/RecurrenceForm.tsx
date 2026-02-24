@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import type {
   FieldValues,
   Path,
   PathValue,
   UseFormReturn,
 } from "react-hook-form";
-import z from "zod";
+import { z } from "zod";
+import { Button } from "../../components/button/button";
 import {
   Dialog,
   DialogContent,
@@ -12,25 +14,38 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../components/dialog/Dialog";
-import { Button } from "../../components/button/button";
-import { Field, FieldLabel } from "../../components/input/Field";
+import { Field, FieldError, FieldLabel } from "../../components/input/Field";
 import { Input } from "../../components/input/Input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/input/Select";
-export type UnitTypeApiEnum = "DAY" | "WEEK" | "MONTH" | "YEAR";
+
+export const DAY_OPTIONS = [
+  { value: "MONDAY", label: "Segunda" },
+  { value: "TUESDAY", label: "Terça" },
+  { value: "WEDNESDAY", label: "Quarta" },
+  { value: "THURSDAY", label: "Quinta" },
+  { value: "FRIDAY", label: "Sexta" },
+  { value: "SATURDAY", label: "Sábado" },
+  { value: "SUNDAY", label: "Domingo" },
+] as const;
+
+export const DayOfWeekApiValues = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+] as const;
+
+export type DayOfWeekApiEnum = (typeof DayOfWeekApiValues)[number];
 
 export const recurrenceSchema = z
   .object({
     startDate: z.string().optional(),
     endDate: z.string().optional(),
-    unit: z.custom<UnitTypeApiEnum>().optional(),
+    allowedDays: z.array(z.enum(DayOfWeekApiValues)).optional(),
     intervalValue: z.string().optional(),
+    dailyDisplayCount: z.string().optional(),
   })
   .optional();
 
@@ -49,20 +64,46 @@ export function RecurrenceForm<TFormValues extends FieldValues>({
   triggerText = "Editar recorrência",
   contentClassName,
 }: RecurrenceFormProps<TFormValues>) {
-  const { register, watch, setValue } = form;
+  const {
+    register,
+    watch,
+    setValue,
+    formState: { errors },
+  } = form;
 
   const withBase = (suffix: string) =>
     (basePath ? `${String(basePath)}.${suffix}` : suffix) as Path<TFormValues>;
 
   const startDatePath = withBase("recurrence.startDate");
   const endDatePath = withBase("recurrence.endDate");
-  const unitPath = withBase("recurrence.unit");
+  const allowedDaysPath = withBase("recurrence.allowedDays");
   const intervalPath = withBase("recurrence.intervalValue");
+  const dailyDisplayCountPath = withBase("recurrence.dailyDisplayCount");
 
-  const unitValue = watch(unitPath) as
-    | PathValue<TFormValues, typeof unitPath>
-    | undefined;
+  const allowedDays =
+    (watch(allowedDaysPath) as unknown as DayOfWeekApiEnum[] | undefined) ?? [];
 
+  const allowedDaysSet = new Set<DayOfWeekApiEnum>(allowedDays);
+
+  const toggleDay = (day: DayOfWeekApiEnum) => {
+    const next = new Set(allowedDaysSet);
+    if (next.has(day)) next.delete(day);
+    else next.add(day);
+
+    setValue(
+      allowedDaysPath,
+      Array.from(next) as PathValue<TFormValues, typeof allowedDaysPath>,
+      { shouldDirty: true, shouldTouch: true, shouldValidate: true },
+    );
+  };
+
+  const allowedDaysError = (() => {
+    const recurrenceErrors = (errors as any)?.recurrence;
+    return recurrenceErrors?.allowedDays?.message as string | undefined;
+  })();
+  useEffect(() => {
+    form.register(allowedDaysPath);
+  }, [form, allowedDaysPath]);
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -87,40 +128,44 @@ export function RecurrenceForm<TFormValues extends FieldValues>({
             <Input type="date" {...register(endDatePath)} />
           </Field>
 
-          <Field className="col-span-1">
-            <FieldLabel>Unidade</FieldLabel>
-            <Select
-              value={(unitValue ?? "") as string}
-              onValueChange={(v) =>
-                setValue(
-                  unitPath,
-                  v as PathValue<TFormValues, typeof unitPath>,
-                  {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  },
-                )
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="DAILY">Diária</SelectItem>
-                  <SelectItem value="WEEKLY">Semanal</SelectItem>
-                  <SelectItem value="MONTHLY">Mensal</SelectItem>
-                  <SelectItem value="YEARLY">Anual</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+          <Field className="col-span-2">
+            <FieldLabel>Dias permitidos</FieldLabel>
+
+            <div className="flex flex-wrap gap-2 rounded-md border p-2">
+              {DAY_OPTIONS.map((d) => {
+                const checked = allowedDaysSet.has(d.value);
+                return (
+                  <label
+                    key={d.value}
+                    className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleDay(d.value)}
+                    />
+                    <span>{d.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            {allowedDaysError && <FieldError>{allowedDaysError}</FieldError>}
           </Field>
 
           <Field className="col-span-1">
-            <FieldLabel>Intervalo</FieldLabel>
+            <FieldLabel>Intervalo (em dias)</FieldLabel>
             <Input
               {...register(intervalPath)}
+              inputMode="numeric"
+              placeholder="1"
+            />
+          </Field>
+
+          <Field className="col-span-1">
+            <FieldLabel>Exibições por dia</FieldLabel>
+            <Input
+              {...register(dailyDisplayCountPath)}
               inputMode="numeric"
               placeholder="1"
             />

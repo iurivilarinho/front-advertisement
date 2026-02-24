@@ -7,8 +7,6 @@ import { advertisementApi } from "../clients/advertisementApi";
 import type { AdvertisementApiDTO } from "../../types/advertisement";
 import { queryClient } from "../../app/provider/TanStackQueryProvider";
 
-
-
 /**
  * Regras:
  * - multipart/form-data em create/update
@@ -18,18 +16,39 @@ import { queryClient } from "../../app/provider/TanStackQueryProvider";
  * Se o binder do backend estiver exigindo outro padrão, ajuste apenas o buildFormData().
  */
 
-const buildFormData = (payload: CreateAdvertisementRequest | UpdateAdvertisementRequest) => {
+const buildFormData = (
+  payload: AdvertisementApiDTO | UpdateAdvertisementRequest,
+) => {
   const fd = new FormData();
 
   fd.append("customerId", String(payload.customerId));
   fd.append("name", payload.name);
   fd.append("type", payload.type);
   fd.append("active", String(payload.active ?? true));
-  fd.append("validFrom", payload.validFrom);
-  fd.append("validTo", payload.validTo);
-  fd.append("maxShowsPerDay", String(payload.maxShowsPerDay));
 
-  (payload.allowedDays ?? []).forEach((d) => fd.append("allowedDays", d));
+  // ✅ RECORRÊNCIA (novo)
+  if (payload.recurrence?.startDate)
+    fd.append("recurrence.startDate", payload.recurrence.startDate);
+  if (payload.recurrence?.endDate)
+    fd.append("recurrence.endDate", payload.recurrence.endDate);
+
+  if (payload.recurrence?.intervalValue != null) {
+    fd.append(
+      "recurrence.intervalValue",
+      String(payload.recurrence.intervalValue),
+    );
+  }
+
+  if (payload.recurrence?.dailyDisplayCount != null) {
+    fd.append(
+      "recurrence.dailyDisplayCount",
+      String(payload.recurrence.dailyDisplayCount),
+    );
+  }
+
+  (payload.recurrence?.allowedDays ?? []).forEach((d) =>
+    fd.append("recurrence.allowedDays", d),
+  );
 
   if (payload.showSocialAtEnd != null) {
     fd.append("showSocialAtEnd", String(payload.showSocialAtEnd));
@@ -45,12 +64,12 @@ const buildFormData = (payload: CreateAdvertisementRequest | UpdateAdvertisement
     if (img.imageUrl) fd.append(`images[${index}].imageUrl`, img.imageUrl);
     fd.append(`images[${index}].displaySeconds`, String(img.displaySeconds));
     fd.append(`images[${index}].orderIndex`, String(img.orderIndex));
-    if (img.image instanceof File) fd.append(`images[${index}].image`, img.image);
+    if (img.image instanceof File)
+      fd.append(`images[${index}].image`, img.image);
   });
 
   return fd;
 };
-
 export interface GetAdvertisementFilter {
   search?: string;
   active?: boolean;
@@ -64,32 +83,16 @@ export interface CreateAdvertisementImageRequest {
   image?: File;
 }
 
-export interface CreateAdvertisementRequest {
-  customerId: number;
-  name: string;
-  type: "IMAGE" | "VIDEO";
-  active?: boolean;
-  validFrom: string; // YYYY-MM-DD
-  validTo: string; // YYYY-MM-DD
-  maxShowsPerDay: number;
-  allowedDays: string[];
-  showSocialAtEnd?: boolean;
-
-  images?: CreateAdvertisementImageRequest[];
-
-  videoUrl?: string;
-  videoDurationSeconds?: number;
-  video?: File;
-}
-
-const createAdvertisement = async (payload: CreateAdvertisementRequest): Promise<AdvertisementApiDTO> => {
+const createAdvertisement = async (
+  payload: AdvertisementApiDTO,
+): Promise<AdvertisementApiDTO> => {
   const formData = buildFormData(payload);
   const { data } = await advertisementApi.post("/advertisements", formData);
   return data;
 };
 
 export const useCreateAdvertisement = (
-  options?: MutationOptions<AdvertisementApiDTO, CreateAdvertisementRequest>,
+  options?: MutationOptions<AdvertisementApiDTO, AdvertisementApiDTO>,
 ) => {
   return useMutation({
     mutationFn: createAdvertisement,
@@ -120,12 +123,17 @@ export const useCreateAdvertisement = (
   });
 };
 
-const getAdvertisementById = async (id: number): Promise<AdvertisementApiDTO> => {
+const getAdvertisementById = async (
+  id: number,
+): Promise<AdvertisementApiDTO> => {
   const { data } = await advertisementApi.get(`/advertisements/${id}`);
   return data;
 };
 
-export const useGetAdvertisementById = (id?: number, options?: QueryOptions<AdvertisementApiDTO>) => {
+export const useGetAdvertisementById = (
+  id?: number,
+  options?: QueryOptions<AdvertisementApiDTO>,
+) => {
   const enabled = !!id && (options?.enabled ?? true);
   return useQuery({
     queryKey: ["advertisement", id],
@@ -135,14 +143,19 @@ export const useGetAdvertisementById = (id?: number, options?: QueryOptions<Adve
   });
 };
 
-export interface UpdateAdvertisementRequest extends CreateAdvertisementRequest {
+export interface UpdateAdvertisementRequest extends AdvertisementApiDTO {
   id: number;
 }
 
-const updateAdvertisement = async (payload: UpdateAdvertisementRequest): Promise<AdvertisementApiDTO> => {
+const updateAdvertisement = async (
+  payload: UpdateAdvertisementRequest,
+): Promise<AdvertisementApiDTO> => {
   const { id, ...rest } = payload;
   const formData = buildFormData(rest);
-  const { data } = await advertisementApi.put(`/advertisements/${id}`, formData);
+  const { data } = await advertisementApi.put(
+    `/advertisements/${id}`,
+    formData,
+  );
   return data;
 };
 
@@ -153,7 +166,9 @@ export const useUpdateAdvertisement = (
     mutationFn: updateAdvertisement,
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["advertisements"] });
-      queryClient.invalidateQueries({ queryKey: ["advertisement", variables.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["advertisement", variables.id],
+      });
 
       if (options?.showToast !== false) {
         const message =
@@ -170,7 +185,8 @@ export const useUpdateAdvertisement = (
         toast.error(
           resolveErrorMessage({
             error,
-            fallbackMessage: options?.errorMessage || "Erro ao atualizar anúncio",
+            fallbackMessage:
+              options?.errorMessage || "Erro ao atualizar anúncio",
           }),
         );
       }
@@ -195,7 +211,9 @@ export interface AddAdvertisementImageRequest extends CreateAdvertisementImageRe
   advertisementId: number;
 }
 
-const addAdvertisementImage = async (payload: AddAdvertisementImageRequest): Promise<AdvertisementApiDTO> => {
+const addAdvertisementImage = async (
+  payload: AddAdvertisementImageRequest,
+): Promise<AdvertisementApiDTO> => {
   const { advertisementId, ...body } = payload;
 
   const fd = new FormData();
@@ -204,7 +222,10 @@ const addAdvertisementImage = async (payload: AddAdvertisementImageRequest): Pro
   fd.append("orderIndex", String(body.orderIndex));
   if (body.image instanceof File) fd.append("image", body.image);
 
-  const { data } = await advertisementApi.post(`/advertisements/${advertisementId}/images`, fd);
+  const { data } = await advertisementApi.post(
+    `/advertisements/${advertisementId}/images`,
+    fd,
+  );
   return data;
 };
 
@@ -214,7 +235,9 @@ export const useAddAdvertisementImage = (
   return useMutation({
     mutationFn: addAdvertisementImage,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["advertisement", variables.advertisementId] });
+      queryClient.invalidateQueries({
+        queryKey: ["advertisement", variables.advertisementId],
+      });
 
       if (options?.showToast !== false) {
         const message =
@@ -231,7 +254,8 @@ export const useAddAdvertisementImage = (
         toast.error(
           resolveErrorMessage({
             error,
-            fallbackMessage: options?.errorMessage || "Erro ao adicionar imagem",
+            fallbackMessage:
+              options?.errorMessage || "Erro ao adicionar imagem",
           }),
         );
       }
@@ -264,12 +288,17 @@ const updateAdvertisementImage = async (
 };
 
 export const useUpdateAdvertisementImage = (
-  options?: MutationOptions<AdvertisementApiDTO, UpdateAdvertisementImageRequest>,
+  options?: MutationOptions<
+    AdvertisementApiDTO,
+    UpdateAdvertisementImageRequest
+  >,
 ) => {
   return useMutation({
     mutationFn: updateAdvertisementImage,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["advertisement", variables.advertisementId] });
+      queryClient.invalidateQueries({
+        queryKey: ["advertisement", variables.advertisementId],
+      });
 
       if (options?.showToast !== false) {
         const message =
@@ -286,7 +315,8 @@ export const useUpdateAdvertisementImage = (
         toast.error(
           resolveErrorMessage({
             error,
-            fallbackMessage: options?.errorMessage || "Erro ao atualizar imagem",
+            fallbackMessage:
+              options?.errorMessage || "Erro ao atualizar imagem",
           }),
         );
       }
@@ -310,12 +340,17 @@ const removeAdvertisementImage = async (
 };
 
 export const useRemoveAdvertisementImage = (
-  options?: MutationOptions<AdvertisementApiDTO, RemoveAdvertisementImageRequest>,
+  options?: MutationOptions<
+    AdvertisementApiDTO,
+    RemoveAdvertisementImageRequest
+  >,
 ) => {
   return useMutation({
     mutationFn: removeAdvertisementImage,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["advertisement", variables.advertisementId] });
+      queryClient.invalidateQueries({
+        queryKey: ["advertisement", variables.advertisementId],
+      });
 
       if (options?.showToast !== false) {
         const message =

@@ -1,8 +1,12 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { join } from "@tauri-apps/api/path";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdvertisementManifest } from "../../types/advertisement";
 import { pickZipAndLoadManifest } from "../../utils/loadManifestFromZip";
+import { Spinner } from "../../components/spinner/Spinner";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../app/routers/routes";
 
 type FlatEntry = {
   advertisementId: number;
@@ -14,6 +18,7 @@ type FlatEntry = {
 type AdvertisementProps = {
   onCycleSeconds?: (seconds: number) => void;
   visible: boolean;
+  onExit: (mode?: "toApp" | "toDesktop") => Promise<void>;
 };
 
 function totalCycleSeconds(manifest: AdvertisementManifest): number {
@@ -55,6 +60,7 @@ function toFlatPlaylist(manifest: AdvertisementManifest): FlatEntry[] {
 export const Advertisement = ({
   onCycleSeconds,
   visible,
+  onExit,
 }: AdvertisementProps) => {
   const [manifest, setManifest] = useState<AdvertisementManifest | null>(null);
   const [rootDir, setRootDir] = useState<string | null>(null);
@@ -66,11 +72,60 @@ export const Advertisement = ({
 
   const timerRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const navigate = useNavigate();
 
   const playlist = useMemo(
     () => (manifest ? toFlatPlaylist(manifest) : []),
     [manifest],
   );
+
+  async function goBackToPlay() {
+    // fecha o overlay/fullscreen corretamente
+    await onExit("toApp");
+
+    // navega para a tela de play (ajuste para a rota correta)
+    navigate(ROUTES.homepage);
+  }
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!isCtrlOrCmd) return;
+      if (e.key.toLowerCase() !== "f") return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      void goBackToPlay();
+    };
+
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKeyDown, {
+        capture: true,
+      } as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 2) Global shortcut (garante funcionar em fullscreen e quando Ctrl+F é capturado)
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        await register("Ctrl+F", () => {
+          if (!mounted) return;
+          void goBackToPlay();
+        });
+      } catch {
+        // se não conseguir registrar, o fallback do DOM ainda pode funcionar
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      void unregister("Ctrl+F").catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const current = playlist.length
     ? playlist[playIndex % playlist.length]
@@ -179,7 +234,11 @@ export const Advertisement = ({
 
   if (error) return <div className="text-sm text-red-600">{error}</div>;
   if (!current || !currentUrl)
-    return <div className="text-sm opacity-70">Carregando…</div>;
+    return (
+      <div className="w-full h-[calc(100vh-80px)] flex items-center justify-center">
+        <Spinner className="h-16 w-16" />
+      </div>
+    );
 
   return (
     <div className="w-screen h-screen overflow-hidden flex items-center justify-center">

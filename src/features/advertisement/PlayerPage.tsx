@@ -1,3 +1,4 @@
+// PlayerPage.tsx
 import { useState } from "react";
 import OverlayController from "../../components/OverlayController";
 import { Advertisement } from "./Advertisement";
@@ -11,8 +12,12 @@ export function PlayerPage() {
       intervalMinutes={0.5}
       fullscreen
     >
-      {(visible) => (
-        <Advertisement onCycleSeconds={setCycleSeconds} visible={visible} />
+      {(visible, exit) => (
+        <Advertisement
+          onCycleSeconds={setCycleSeconds}
+          visible={visible}
+          onExit={exit}
+        />
       )}
     </OverlayController>
   );
