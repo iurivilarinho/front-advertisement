@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "yt-overlay",
+  "productName": "LIS - Advertisement",
   "version": "0.1.0",
   "identifier": "com.lis.advertisement",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "yt-overlay",
+        "title": "LIS - Advertisement",
         "width": 800,
         "height": 600,
         "resizable": false,

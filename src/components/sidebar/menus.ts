@@ -9,7 +9,7 @@ export const menus = [
     url: "/",
     icon: ChartColumn,
     isActive: undefined,
-    subMenus: [undefined],
+    subMenus: undefined,
   },
   {
     title: "Criar Anúncio",

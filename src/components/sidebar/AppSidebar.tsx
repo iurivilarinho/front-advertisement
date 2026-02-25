@@ -1,12 +1,5 @@
-import { ChevronRight } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 // import { useAuth } from "../../app/provider/AuthProvider";
-import { useIsMobile } from "../../hooks/useIsMobile";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../collapsible/Collapsible";
 import { menus } from "./menus";
 import {
   Sidebar,
@@ -18,8 +11,8 @@ import {
 } from "./Sidebar";
 
 export const AppSidebar = () => {
-  const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  // const navigate = useNavigate();
+  // const isMobile = useIsMobile();
   // const { user, logout } = useAuth();
 
   // const handleLogout = async () => {
@@ -35,40 +28,40 @@ export const AppSidebar = () => {
         <SidebarGroup>
           <SidebarMenu>
             {menus.map((menu) =>
-              !!menu.subMenus?.length ? (
-                <Collapsible
-                  key={menu.title}
-                  asChild
-                  defaultOpen={menu.isActive}
-                  className="group/collapsible"
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip={menu.title}
-                        className="truncate"
-                      >
-                        <menu.icon />
-                        <span>{menu.title}</span>
-                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      {/* <SidebarMenuSub>
-                        {menu.subMenus.map((subMenu) => (
-                          <SidebarMenuSubItem key={subMenu.title}>
-                            <SidebarMenuSubButton asChild>
-                              <Link to={subMenu.url}>
-                                <span>{subMenu.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub> */}
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              ) : (
+              // !!menu.subMenus?.length ? (
+              //   <Collapsible
+              //     key={menu.title}
+              //     asChild
+              //     defaultOpen={menu.isActive}
+              //     className="group/collapsible"
+              //   >
+              //     <SidebarMenuItem>
+              //       <CollapsibleTrigger asChild>
+              //         <SidebarMenuButton
+              //           tooltip={menu.title}
+              //           className="truncate"
+              //         >
+              //           <menu.icon />
+              //           <span>{menu.title}</span>
+              //           <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              //         </SidebarMenuButton>
+              //       </CollapsibleTrigger>
+              //       <CollapsibleContent>
+              //         <SidebarMenuSub>
+              //           {menu.subMenus.map((subMenu) => (
+              //             <SidebarMenuSubItem key={subMenu.title}>
+              //               <SidebarMenuSubButton asChild>
+              //                 <Link to={subMenu.url}>
+              //                   <span>{subMenu.title}</span>
+              //                 </Link>
+              //               </SidebarMenuSubButton>
+              //             </SidebarMenuSubItem>
+              //           ))}
+              //         </SidebarMenuSub> 
+              //       </CollapsibleContent>
+              //     </SidebarMenuItem>
+              //   </Collapsible>
+              // ) : (
                 <SidebarMenuItem key={menu.title}>
                   <SidebarMenuButton
                     asChild
@@ -81,8 +74,9 @@ export const AppSidebar = () => {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ),
-            )}
+              )
+            // ,)
+            }
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
