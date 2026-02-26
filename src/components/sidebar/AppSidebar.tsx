@@ -4,13 +4,41 @@ import { menus } from "./menus";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem
+  SidebarMenuItem,
 } from "./Sidebar";
+import { useEffect, useState } from "react";
+
+type ThemeMode = "light" | "dark";
+
+function getInitialTheme(): ThemeMode {
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark") return saved;
+
+  // default fixo: dark
+  return "dark";
+}
+
+function applyTheme(theme: ThemeMode) {
+  const html = document.documentElement; // <html>
+  if (theme === "dark") html.classList.add("dark");
+  else html.classList.remove("dark");
+}
 
 export const AppSidebar = () => {
+  const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  };
   // const navigate = useNavigate();
   // const isMobile = useIsMobile();
   // const { user, logout } = useAuth();
@@ -27,41 +55,42 @@ export const AppSidebar = () => {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {menus.map((menu) =>
-              // !!menu.subMenus?.length ? (
-              //   <Collapsible
-              //     key={menu.title}
-              //     asChild
-              //     defaultOpen={menu.isActive}
-              //     className="group/collapsible"
-              //   >
-              //     <SidebarMenuItem>
-              //       <CollapsibleTrigger asChild>
-              //         <SidebarMenuButton
-              //           tooltip={menu.title}
-              //           className="truncate"
-              //         >
-              //           <menu.icon />
-              //           <span>{menu.title}</span>
-              //           <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-              //         </SidebarMenuButton>
-              //       </CollapsibleTrigger>
-              //       <CollapsibleContent>
-              //         <SidebarMenuSub>
-              //           {menu.subMenus.map((subMenu) => (
-              //             <SidebarMenuSubItem key={subMenu.title}>
-              //               <SidebarMenuSubButton asChild>
-              //                 <Link to={subMenu.url}>
-              //                   <span>{subMenu.title}</span>
-              //                 </Link>
-              //               </SidebarMenuSubButton>
-              //             </SidebarMenuSubItem>
-              //           ))}
-              //         </SidebarMenuSub> 
-              //       </CollapsibleContent>
-              //     </SidebarMenuItem>
-              //   </Collapsible>
-              // ) : (
+            {
+              menus.map((menu) => (
+                // !!menu.subMenus?.length ? (
+                //   <Collapsible
+                //     key={menu.title}
+                //     asChild
+                //     defaultOpen={menu.isActive}
+                //     className="group/collapsible"
+                //   >
+                //     <SidebarMenuItem>
+                //       <CollapsibleTrigger asChild>
+                //         <SidebarMenuButton
+                //           tooltip={menu.title}
+                //           className="truncate"
+                //         >
+                //           <menu.icon />
+                //           <span>{menu.title}</span>
+                //           <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                //         </SidebarMenuButton>
+                //       </CollapsibleTrigger>
+                //       <CollapsibleContent>
+                //         <SidebarMenuSub>
+                //           {menu.subMenus.map((subMenu) => (
+                //             <SidebarMenuSubItem key={subMenu.title}>
+                //               <SidebarMenuSubButton asChild>
+                //                 <Link to={subMenu.url}>
+                //                   <span>{subMenu.title}</span>
+                //                 </Link>
+                //               </SidebarMenuSubButton>
+                //             </SidebarMenuSubItem>
+                //           ))}
+                //         </SidebarMenuSub>
+                //       </CollapsibleContent>
+                //     </SidebarMenuItem>
+                //   </Collapsible>
+                // ) : (
                 <SidebarMenuItem key={menu.title}>
                   <SidebarMenuButton
                     asChild
@@ -74,14 +103,29 @@ export const AppSidebar = () => {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )
-            // ,)
+              ))
+              // ,)
             }
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-    { /*  <SidebarFooter>
+      <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              onClick={toggleTheme}
+              tooltip={theme === "dark" ? "Tema claro" : "Tema escuro"}
+              className="truncate"
+            >
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background">
+                {theme === "dark" ? "🌙" : "☀️"}
+              </span>
+              <span>{theme === "dark" ? "Dark" : "Light"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        {/* <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -139,8 +183,8 @@ export const AppSidebar = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>*/}
+        </SidebarMenu>*/}
+      </SidebarFooter>
     </Sidebar>
   );
 };

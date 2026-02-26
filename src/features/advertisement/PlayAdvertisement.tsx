@@ -1,5 +1,4 @@
-// src/pages/advertisements/PlayAdvertisement.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routers/routes";
 import { Button } from "../../components/button/button";
@@ -7,11 +6,11 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLegend,
-  FieldSet
+  FieldSet,
 } from "../../components/input/Field";
 
 import type { AdvertisementManifest } from "../../types/advertisement";
-import { pickZipAndLoadManifest } from "../../utils/loadManifestFromZip";
+import { useAdvertisements } from "../../app/provider/AdvertisementProvider";
 
 type FlatEntry = {
   advertisementId: number;
@@ -22,13 +21,9 @@ type FlatEntry = {
 
 function totalCycleSeconds(manifest: AdvertisementManifest): number {
   let total = 0;
-
   for (const item of manifest.items ?? []) {
-    for (const a of item.assets ?? []) {
-      total += Math.max(0, a.durationSeconds ?? 0);
-    }
+    for (const a of item.assets ?? []) total += Math.max(0, a.durationSeconds ?? 0);
   }
-
   return total;
 }
 
@@ -66,25 +61,7 @@ function secondsToMmSs(totalSeconds: number) {
 export const PlayAdvertisement = () => {
   const navigate = useNavigate();
 
-  const [manifest, setManifest] = useState<AdvertisementManifest | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // carrega o manifest (a lógica de “anúncios do dia” vem do zip/manifest que você já gera)
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await pickZipAndLoadManifest();
-        setManifest(result.manifest);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro ao carregar anúncios.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { manifest, loading, error, reload } = useAdvertisements();
 
   const flat = useMemo(() => (manifest ? toFlatPlaylist(manifest) : []), [manifest]);
 
@@ -127,12 +104,12 @@ export const PlayAdvertisement = () => {
                 </FieldDescription>
               </div>
 
-              <div className="shrink-0">
-                <Button
-                  type="button"
-                  onClick={() => navigate(ROUTES.player)}
-                  className="gap-2"
-                >
+              <div className="shrink-0 flex gap-2">
+                <Button type="button" onClick={() => void reload()} className="gap-2" variant="secondary">
+                  Recarregar
+                </Button>
+
+                <Button type="button" onClick={() => navigate(ROUTES.player)} className="gap-2">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border">
                     ▶
                   </span>
@@ -149,13 +126,9 @@ export const PlayAdvertisement = () => {
             </FieldDescription>
 
             <div className="mt-4 space-y-3">
-              {loading && (
-                <div className="text-sm opacity-70">Carregando…</div>
-              )}
+              {loading && <div className="text-sm opacity-70">Carregando…</div>}
 
-              {!loading && error && (
-                <div className="text-sm text-red-600">{error}</div>
-              )}
+              {!loading && error && <div className="text-sm text-red-600">{error}</div>}
 
               {!loading && !error && grouped.length === 0 && (
                 <div className="text-sm opacity-70">Nenhum anúncio encontrado para hoje.</div>
@@ -167,12 +140,9 @@ export const PlayAdvertisement = () => {
                   <div key={ad.advertisementId} className="rounded-lg border p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold">
-                          Advertisement #{ad.advertisementId}
-                        </div>
+                        <div className="text-sm font-semibold">Advertisement #{ad.advertisementId}</div>
                         <div className="text-sm opacity-70">
-                          Tipo: {ad.type} • Mídias: {ad.assets.length} • Duração:{" "}
-                          {secondsToMmSs(ad.totalSeconds)}
+                          Tipo: {ad.type} • Mídias: {ad.assets.length} • Duração: {secondsToMmSs(ad.totalSeconds)}
                         </div>
                       </div>
 

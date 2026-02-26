@@ -1,26 +1,20 @@
-// Advertisement.tsx
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { join } from "@tauri-apps/api/path";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AdvertisementManifest } from "../../types/advertisement";
-import { pickZipAndLoadManifest } from "../../utils/loadManifestFromZip";
 import { Spinner } from "../../components/spinner/Spinner";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routers/routes";
+import type { AdvertisementManifest } from "../../types/advertisement";
+import { useAdvertisements } from "../../app/provider/AdvertisementProvider";
 
 type AdvertisementProps = {
-  adIndex: number;                 // ✅ vem de fora
-  onAdsCount?: (n: number) => void; // ✅ informa total de anúncios pro PlayerPage
+  adIndex: number;
+  onAdsCount?: (n: number) => void;
   onCycleSeconds?: (seconds: number) => void;
   visible: boolean;
   onExit: (mode?: "toApp" | "toDesktop") => Promise<void>;
 };
-
-/* cache */
-let cachedManifest: AdvertisementManifest | null = null;
-let cachedRootDir: string | null = null;
-let cachedManifestDir: string | null = null;
 
 function adCycleSeconds(ad: AdvertisementManifest["items"][number]): number {
   let total = 0;
@@ -35,11 +29,7 @@ export const Advertisement = ({
   visible,
   onExit,
 }: AdvertisementProps) => {
-  const [manifest, setManifest] = useState<AdvertisementManifest | null>(null);
-  const [rootDir, setRootDir] = useState<string | null>(null);
-  const [manifestDir, setManifestDir] = useState<string>("");
-
-  const [error, setError] = useState<string | null>(null);
+  const { manifest, extractedRootDir, manifestDir, loading, error } = useAdvertisements();
 
   const [assetIndex, setAssetIndex] = useState(0);
   const [currentUrl, setCurrentUrl] = useState<string>("");
@@ -60,8 +50,7 @@ export const Advertisement = ({
     });
   }, [currentAd]);
 
-  const currentAsset =
-    orderedAssets.length > 0 ? orderedAssets[assetIndex] : null;
+  const currentAsset = orderedAssets.length > 0 ? orderedAssets[assetIndex] : null;
 
   const goBackToPlay = useCallback(async () => {
     await onExit("toApp");
@@ -103,40 +92,12 @@ export const Advertisement = ({
     };
   }, [goBackToPlay]);
 
-  // load manifest once
-  useEffect(() => {
-    (async () => {
-      try {
-        setError(null);
-
-        if (cachedManifest && cachedRootDir && cachedManifestDir) {
-          setManifest(cachedManifest);
-          setRootDir(cachedRootDir);
-          setManifestDir(cachedManifestDir);
-          return;
-        }
-
-        const result = await pickZipAndLoadManifest();
-
-        cachedManifest = result.manifest;
-        cachedRootDir = result.extractedRootDir;
-        cachedManifestDir = result.manifestDir;
-
-        setManifest(result.manifest);
-        setRootDir(result.extractedRootDir);
-        setManifestDir(result.manifestDir);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Erro ao carregar anúncios.");
-      }
-    })();
-  }, []);
-
   // report ads count to parent
   useEffect(() => {
     onAdsCount?.(ads.length);
   }, [ads.length, onAdsCount]);
 
-  // cycle seconds (overlay duration) based on currentAd
+  // overlay duration based on currentAd
   useEffect(() => {
     if (!currentAd) return;
     onCycleSeconds?.(adCycleSeconds(currentAd));
@@ -154,15 +115,15 @@ export const Advertisement = ({
 
   const assetUrl = useCallback(
     async (assetPath: string): Promise<string> => {
-      if (!rootDir) return "";
+      if (!extractedRootDir) return "";
       const abs = await join(
-        rootDir,
+        extractedRootDir,
         ...(manifestDir ? manifestDir.split("/") : []),
         ...assetPath.split("/")
       );
       return convertFileSrc(abs.replaceAll("\\", "/"));
     },
-    [rootDir, manifestDir]
+    [extractedRootDir, manifestDir]
   );
 
   // resolve url
@@ -190,9 +151,7 @@ export const Advertisement = ({
       setAssetIndex((i) => i + 1);
       return;
     }
-
-    // terminou as mídias desse anúncio; não decide o próximo aqui
-    // o próximo anúncio será escolhido na próxima abertura pelo PlayerPage
+    // terminou as mídias desse anúncio; próximo anúncio é responsabilidade do PlayerPage
   }, [assetIndex, currentAd, orderedAssets.length]);
 
   // image timer
@@ -230,6 +189,13 @@ export const Advertisement = ({
     v.load();
     v.play().catch(() => {});
   }, [visible, currentUrl, currentAd]);
+
+  if (loading)
+    return (
+      <div className="w-full h-[calc(100vh-80px)] flex items-center justify-center">
+        <Spinner className="h-16 w-16" />
+      </div>
+    );
 
   if (error) return <div className="text-sm text-red-600">{error}</div>;
 
