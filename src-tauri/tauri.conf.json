@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "LIS - Advertisement",
         "width": 1200,
         "height": 700,
@@ -21,6 +22,19 @@
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true
+      },
+      {
+        "label": "overlay",
+        "url": "/player",
+        "visible": false,
+        "resizable": false,
+        "fullscreen": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "create": false
       }
     ],
     "security": {
@@ -35,7 +49,8 @@
         {
           "identifier": "default",
           "windows": [
-            "main"
+            "main",
+            "overlay"
           ],
           "permissions": [
             "core:window:allow-show",

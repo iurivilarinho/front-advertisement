@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 use tauri::State;
-use tauri::{Manager};
+use tauri::{AppHandle, Manager};
+use tauri::webview::WebviewWindowBuilder;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use windows_sys::Win32::Foundation::HWND;
@@ -18,6 +19,30 @@ fn save_foreground_window(state: State<'_, FocusState>) {
     let mut guard = state.0.lock().unwrap();
     *guard = hwnd;
   }
+}
+
+
+#[tauri::command]
+async fn ensure_overlay_window(app: AppHandle) -> Result<(), String> {
+  if app.get_webview_window("overlay").is_some() {
+    return Ok(());
+  }
+
+  let cfg = app
+    .config()
+    .app
+    .windows
+    .iter()
+    .find(|w| w.label == "overlay")
+    .ok_or("WindowConfig 'overlay' não encontrado no tauri.conf")?
+    .clone();
+
+  WebviewWindowBuilder::from_config(&app, &cfg)
+    .map_err(|e| e.to_string())?
+    .build()
+    .map_err(|e| e.to_string())?;
+
+  Ok(())
 }
 
 #[tauri::command]
@@ -54,7 +79,8 @@ pub fn run() {
     .manage(FocusState(Mutex::new(0)))
     .invoke_handler(tauri::generate_handler![
       save_foreground_window,
-      restore_foreground_window
+      restore_foreground_window,
+      ensure_overlay_window
     ])
     .setup(|app| {
 

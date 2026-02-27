@@ -1,6 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../app/routers/routes";
 import { Button } from "../../components/button/button";
 import {
   FieldDescription,
@@ -9,8 +10,8 @@ import {
   FieldSet,
 } from "../../components/input/Field";
 
-import type { AdvertisementManifest } from "../../types/advertisement";
 import { useAdvertisements } from "../../app/provider/AdvertisementProvider";
+import type { AdvertisementManifest } from "../../types/advertisement";
 
 type FlatEntry = {
   advertisementId: number;
@@ -57,9 +58,21 @@ function secondsToMmSs(totalSeconds: number) {
   const ss = String(s % 60).padStart(2, "0");
   return `${mm}:${ss}`;
 }
+async function openOverlayAndHideMain() {
+  await invoke("ensure_overlay_window");
+  const overlay = await WebviewWindow.getByLabel("overlay");
+  if (!overlay) throw new Error("overlay window não encontrada");
+
+  // esconde main
+  const main = getCurrentWindow();
+  await main.hide();
+
+  // mostra overlay (já nasce com url=/player e fullscreen=true)
+  await overlay.show();
+  await overlay.unminimize();
+}
 
 export const PlayAdvertisement = () => {
-  const navigate = useNavigate();
 
   const { manifest, loading, error, reload } = useAdvertisements();
 
@@ -109,7 +122,7 @@ export const PlayAdvertisement = () => {
                   Recarregar
                 </Button>
 
-                <Button type="button" onClick={() => navigate(ROUTES.player)} className="gap-2">
+                <Button type="button" onClick={() => void openOverlayAndHideMain()} className="gap-2">
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border">
                     ▶
                   </span>

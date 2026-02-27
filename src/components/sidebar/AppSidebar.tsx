@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 // import { useAuth } from "../../app/provider/AuthProvider";
+import { useTheme, type Theme } from "../../app/provider/ThemeProviderContext";
 import { menus } from "./menus";
 import {
   Sidebar,
@@ -10,35 +11,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./Sidebar";
-import { useEffect, useState } from "react";
-
-type ThemeMode = "light" | "dark";
-
-function getInitialTheme(): ThemeMode {
-  const saved = localStorage.getItem("theme");
-  if (saved === "light" || saved === "dark") return saved;
-
-  // default fixo: dark
-  return "dark";
-}
-
-function applyTheme(theme: ThemeMode) {
-  const html = document.documentElement; // <html>
-  if (theme === "dark") html.classList.add("dark");
-  else html.classList.remove("dark");
-}
 
 export const AppSidebar = () => {
-  const [theme, setTheme] = useState<ThemeMode>(() => getInitialTheme());
+  const { theme, setTheme } = useTheme();
 
-  useEffect(() => {
-    applyTheme(theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const handleToggleTheme = () => {
+    const next: Theme =
+      theme === "system" ? "light" : theme === "light" ? "dark" : "system";
+    setTheme(next);
   };
+
   // const navigate = useNavigate();
   // const isMobile = useIsMobile();
   // const { user, logout } = useAuth();
@@ -114,7 +96,7 @@ export const AppSidebar = () => {
           <SidebarMenuItem>
             <SidebarMenuButton
               type="button"
-              onClick={toggleTheme}
+              onClick={handleToggleTheme}
               tooltip={theme === "dark" ? "Tema claro" : "Tema escuro"}
               className="truncate"
             >

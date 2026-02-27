@@ -57,7 +57,7 @@ export function PlayerPage() {
     <OverlayController
       showSeconds={cycleSeconds}
       intervalMinutes={intervalMinutes}
-      fullscreen
+      
       onHidden={onHidden}
     >
       {(visible, exit) => (
