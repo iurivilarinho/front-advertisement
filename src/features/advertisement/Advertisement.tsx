@@ -1,7 +1,14 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { join } from "@tauri-apps/api/path";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routers/routes";
 import type { AdvertisementManifest } from "../../types/advertisement";
@@ -17,8 +24,7 @@ type AdvertisementProps = {
 
 function adCycleSeconds(ad: AdvertisementManifest["items"][number]): number {
   let total = 0;
-  for (const a of ad.assets ?? [])
-    total += Math.max(0, a.durationSeconds ?? 0);
+  for (const a of ad.assets ?? []) total += Math.max(0, a.durationSeconds ?? 0);
   return total;
 }
 
@@ -66,10 +72,8 @@ export const Advertisement = ({
 
   // 🔹 Aplica transparência no body somente durante loading
   useEffect(() => {
-    if (overlayLoading)
-      document.body.classList.add("overlay-hidden");
-    else
-      document.body.classList.remove("overlay-hidden");
+    if (overlayLoading) document.body.classList.add("overlay-hidden");
+    else document.body.classList.remove("overlay-hidden");
 
     return () => {
       document.body.classList.remove("overlay-hidden");
@@ -120,13 +124,29 @@ export const Advertisement = ({
     onCycleSeconds?.(adCycleSeconds(currentAd));
   }, [currentAd, onCycleSeconds]);
 
-  useEffect(() => {
-    if (!visible) {
-      videoRef.current?.pause();
-      return;
+  useLayoutEffect(() => {
+    // sempre que abrir o overlay ou trocar de anúncio
+    if (visible) {
+      // evita frame preso em <video>
+      const v = videoRef.current;
+      if (v) {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      }
+
+      setAssetIndex(0);
+      setCurrentUrl("");
+    } else {
+      // ao fechar, também limpa
+      const v = videoRef.current;
+      if (v) {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      }
+      setCurrentUrl("");
     }
-    setAssetIndex(0);
-    setCurrentUrl("");
   }, [visible, adIndex]);
 
   const assetUrl = useCallback(
@@ -135,11 +155,11 @@ export const Advertisement = ({
       const abs = await join(
         extractedRootDir,
         ...(manifestDir ? manifestDir.split("/") : []),
-        ...assetPath.split("/")
+        ...assetPath.split("/"),
       );
       return convertFileSrc(abs.replaceAll("\\", "/"));
     },
-    [extractedRootDir, manifestDir]
+    [extractedRootDir, manifestDir],
   );
 
   useEffect(() => {
@@ -176,8 +196,7 @@ export const Advertisement = ({
     if (!visible) return;
     if (!currentAsset || currentAd?.type !== "IMAGE") return;
 
-    const ms =
-      Math.max(1, currentAsset.durationSeconds ?? 10) * 1000;
+    const ms = Math.max(1, currentAsset.durationSeconds ?? 10) * 1000;
     timerRef.current = window.setTimeout(nextAsset, ms);
 
     return () => {
@@ -205,8 +224,7 @@ export const Advertisement = ({
   // 🔹 Não renderiza spinner — loading fica transparente
   if (overlayLoading) return null;
 
-  if (error)
-    return <div className="text-sm text-red-600">{error}</div>;
+  if (error) return <div className="text-sm text-red-600">{error}</div>;
 
   return (
     <div className="w-screen h-screen overflow-hidden flex items-center justify-center">
