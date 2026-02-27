@@ -11,9 +11,13 @@ type Props = {
   onHidden?: () => void;
   children: (
     visible: boolean,
-    exit: (mode?: ExitMode) => Promise<void>
+    exit: (mode?: ExitMode) => Promise<void>,
   ) => React.ReactNode;
 };
+
+function raf(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
 
 export default function OverlayController({
   showSeconds,
@@ -25,7 +29,6 @@ export default function OverlayController({
   const [visible, setVisible] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // ✅ refs para não reiniciar o loop quando valores mudarem
   const showSecondsRef = useRef(showSeconds);
   const intervalMinutesRef = useRef(intervalMinutes);
   const fullscreenRef = useRef(fullscreen);
@@ -57,33 +60,54 @@ export default function OverlayController({
             window.clearTimeout(id);
             resolve();
           },
-          { once: true }
+          { once: true },
         );
       });
 
     const showOverlay = async () => {
-      await invoke("save_foreground_window");
-      await w.setAlwaysOnTop(true);
-      await w.setDecorations(false);
-      await w.show();
-      await w.unminimize();
-      if (fullscreenRef.current) await w.setFullscreen(true);
-      else await w.maximize();
+      // 1) Esconde visualmente ANTES da transição (evita ver "encher a tela")
+      document.body.classList.add("overlay-hidden");
+
+      await invoke("save_foreground_window").catch(() => {});
+      await w.setAlwaysOnTop(true).catch(() => {});
+      await w.setDecorations(false).catch(() => {});
+
+      // 2) Faz a transição de janela ainda "invisível"
+      await w.show().catch(() => {});
+      await w.unminimize().catch(() => {});
+      if (fullscreenRef.current) await w.setFullscreen(true).catch(() => {});
+      else await w.maximize().catch(() => {});
+
       await w.setFocus().catch(() => {});
+
+      // 3) Agora que já está fullscreen/max, renderiza conteúdo
       setVisible(true);
+
+      // 4) Espera a UI pintar (1-2 frames) e só então volta o body normal
+      await raf();
+      await raf();
+      document.body.classList.remove("overlay-hidden");
     };
 
     const hideOverlay = async () => {
+      // 1) Esconde visualmente ANTES de reduzir/ocultar (evita ver transição inversa)
+      document.body.classList.add("overlay-hidden");
+
       setVisible(false);
+
+      // 2) Sai do fullscreen e oculta
       await w.setFullscreen(false).catch(() => {});
-      await w.hide();
-      await invoke("restore_foreground_window");
+      await w.hide().catch(() => {});
+      await invoke("restore_foreground_window").catch(() => {});
+
+      // 3) Depois que já ocultou, pode voltar body normal
+      document.body.classList.remove("overlay-hidden");
+
       onHidden?.();
     };
 
     (async () => {
       while (!signal.aborted) {
-        // ✅ lê valores atuais aqui (não pelo dependency array)
         const showMs = Math.max(0, Number(showSecondsRef.current) || 0) * 1000;
         const intervalMs =
           Math.max(0, Number(intervalMinutesRef.current) || 0) * 60_000;
@@ -97,10 +121,16 @@ export default function OverlayController({
       }
     })();
 
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+      document.body.classList.remove("overlay-hidden");
+    };
   }, [onHidden]);
 
   const exit = async (mode: ExitMode = "toApp") => {
+    // Evita ver transições ao sair manualmente
+    document.body.classList.add("overlay-hidden");
+
     abortRef.current?.abort();
 
     const w = getCurrentWindow();
@@ -114,25 +144,27 @@ export default function OverlayController({
     if (mode === "toDesktop") {
       await w.hide().catch(() => {});
       await invoke("restore_foreground_window").catch(() => {});
+      document.body.classList.remove("overlay-hidden");
       return;
     }
 
     await w.show().catch(() => {});
     await w.setFocus().catch(() => {});
+
+    // Aguarda pintar e volta ao normal
+    await raf();
+    await raf();
+    document.body.classList.remove("overlay-hidden");
   };
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "rgba(0,0,0,0)" }}>
+    <div style={{ width: "100vw", height: "100vh", background: "transparent" }}>
       {children(visible, exit)}
     </div>
   );
 }
 
-
-
-
-// OverlayController.tsx com transparencia
-// import { invoke } from "@tauri-apps/api/core";
+// // OverlayController.tsx com transparencia
 // import { getCurrentWindow } from "@tauri-apps/api/window";
 // import { useEffect, useRef, useState } from "react";
 
@@ -159,7 +191,6 @@ export default function OverlayController({
 //   const [visible, setVisible] = useState(false);
 //   const abortRef = useRef<AbortController | null>(null);
 
-//   // refs para não reiniciar loop quando showSeconds/interval/fullscreen mudarem
 //   const showSecondsRef = useRef(showSeconds);
 //   const intervalMinutesRef = useRef(intervalMinutes);
 //   const fullscreenRef = useRef(fullscreen);
@@ -196,34 +227,35 @@ export default function OverlayController({
 //       });
 
 //     const showOverlay = async () => {
-//       await invoke("save_foreground_window");
-
-//       // ✅ mostrando: remove modo transparente
+//       // mostra visualmente
 //       document.body.classList.remove("overlay-hidden");
 
-//       await w.setIgnoreCursorEvents(false).catch(() => {});
+//       // NÃO rouba foco
 //       await w.setAlwaysOnTop(true).catch(() => {});
+//       await w.setIgnoreCursorEvents(true).catch(() => {});
 //       await w.setDecorations(false).catch(() => {});
 
 //       await w.show().catch(() => {});
 //       await w.unminimize().catch(() => {});
 
-//       if (fullscreenRef.current) await w.setFullscreen(true).catch(() => {});
-//       else await w.maximize().catch(() => {});
+//       if (fullscreenRef.current) {
+//         await w.setFullscreen(true).catch(() => {});
+//       } else {
+//         await w.maximize().catch(() => {});
+//       }
 
-//       await w.setFocus().catch(() => {});
 //       setVisible(true);
 //     };
 
 //     const hideOverlay = async () => {
-//       // ✅ ocultando: ativa modo transparente (sem hide/minimize)
+//       // deixa transparente (não esconde a janela)
 //       document.body.classList.add("overlay-hidden");
 //       setVisible(false);
 
-//       // mantém fullscreen (não redimensiona), só deixa clicar "atrás"
+//       // continua ignorando mouse
 //       await w.setIgnoreCursorEvents(true).catch(() => {});
 //       await w.setAlwaysOnTop(false).catch(() => {});
-//       await invoke("restore_foreground_window").catch(() => {});
+
 //       onHidden?.();
 //     };
 
@@ -246,7 +278,6 @@ export default function OverlayController({
 //   }, [onHidden]);
 
 //   const exit = async (mode: ExitMode = "toApp") => {
-//     // saída manual: encerra o loop e volta UI ao normal
 //     document.body.classList.remove("overlay-hidden");
 //     abortRef.current?.abort();
 
@@ -261,17 +292,14 @@ export default function OverlayController({
 
 //     if (mode === "toDesktop") {
 //       await w.hide().catch(() => {});
-//       await invoke("restore_foreground_window").catch(() => {});
 //       return;
 //     }
 
 //     await w.show().catch(() => {});
-//     await w.setFocus().catch(() => {});
 //   };
 
 //   return (
 //     <div style={{ width: "100vw", height: "100vh", background: "transparent" }}>
-//       {/* ✅ quando oculto, nem renderiza children */}
 //       {visible ? children(visible, exit) : null}
 //     </div>
 //   );

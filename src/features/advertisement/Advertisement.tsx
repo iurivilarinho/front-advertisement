@@ -2,7 +2,6 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { join } from "@tauri-apps/api/path";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Spinner } from "../../components/spinner/Spinner";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routers/routes";
 import type { AdvertisementManifest } from "../../types/advertisement";
@@ -18,7 +17,8 @@ type AdvertisementProps = {
 
 function adCycleSeconds(ad: AdvertisementManifest["items"][number]): number {
   let total = 0;
-  for (const a of ad.assets ?? []) total += Math.max(0, a.durationSeconds ?? 0);
+  for (const a of ad.assets ?? [])
+    total += Math.max(0, a.durationSeconds ?? 0);
   return total;
 }
 
@@ -29,7 +29,8 @@ export const Advertisement = ({
   visible,
   onExit,
 }: AdvertisementProps) => {
-  const { manifest, extractedRootDir, manifestDir, loading, error } = useAdvertisements();
+  const { manifest, extractedRootDir, manifestDir, loading, error } =
+    useAdvertisements();
 
   const [assetIndex, setAssetIndex] = useState(0);
   const [currentUrl, setCurrentUrl] = useState<string>("");
@@ -50,14 +51,32 @@ export const Advertisement = ({
     });
   }, [currentAd]);
 
-  const currentAsset = orderedAssets.length > 0 ? orderedAssets[assetIndex] : null;
+  const currentAsset =
+    orderedAssets.length > 0 ? orderedAssets[assetIndex] : null;
 
   const goBackToPlay = useCallback(async () => {
     await onExit("toApp");
     navigate(ROUTES.homepage);
   }, [navigate, onExit]);
 
-  // shortcuts
+  // 🔹 Detecta se está carregando o overlay
+  const overlayLoading =
+    visible &&
+    (loading || !!error || !currentAd || !currentAsset || !currentUrl);
+
+  // 🔹 Aplica transparência no body somente durante loading
+  useEffect(() => {
+    if (overlayLoading)
+      document.body.classList.add("overlay-hidden");
+    else
+      document.body.classList.remove("overlay-hidden");
+
+    return () => {
+      document.body.classList.remove("overlay-hidden");
+    };
+  }, [overlayLoading]);
+
+  // shortcuts teclado
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -92,18 +111,15 @@ export const Advertisement = ({
     };
   }, [goBackToPlay]);
 
-  // report ads count to parent
   useEffect(() => {
     onAdsCount?.(ads.length);
   }, [ads.length, onAdsCount]);
 
-  // overlay duration based on currentAd
   useEffect(() => {
     if (!currentAd) return;
     onCycleSeconds?.(adCycleSeconds(currentAd));
   }, [currentAd, onCycleSeconds]);
 
-  // whenever overlay opens OR adIndex changes: restart asset 0
   useEffect(() => {
     if (!visible) {
       videoRef.current?.pause();
@@ -126,7 +142,6 @@ export const Advertisement = ({
     [extractedRootDir, manifestDir]
   );
 
-  // resolve url
   useEffect(() => {
     let cancelled = false;
 
@@ -149,12 +164,9 @@ export const Advertisement = ({
 
     if (assetIndex + 1 < orderedAssets.length) {
       setAssetIndex((i) => i + 1);
-      return;
     }
-    // terminou as mídias desse anúncio; próximo anúncio é responsabilidade do PlayerPage
   }, [assetIndex, currentAd, orderedAssets.length]);
 
-  // image timer
   useEffect(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -164,7 +176,8 @@ export const Advertisement = ({
     if (!visible) return;
     if (!currentAsset || currentAd?.type !== "IMAGE") return;
 
-    const ms = Math.max(1, currentAsset.durationSeconds ?? 10) * 1000;
+    const ms =
+      Math.max(1, currentAsset.durationSeconds ?? 10) * 1000;
     timerRef.current = window.setTimeout(nextAsset, ms);
 
     return () => {
@@ -175,7 +188,6 @@ export const Advertisement = ({
     };
   }, [visible, currentAsset, currentAd?.type, nextAsset]);
 
-  // video play
   useEffect(() => {
     if (!visible) return;
     if (!currentAd || currentAd.type !== "VIDEO") return;
@@ -190,28 +202,18 @@ export const Advertisement = ({
     v.play().catch(() => {});
   }, [visible, currentUrl, currentAd]);
 
-  if (loading)
-    return (
-      <div className="w-full h-[calc(100vh-80px)] flex items-center justify-center">
-        <Spinner className="h-16 w-16" />
-      </div>
-    );
+  // 🔹 Não renderiza spinner — loading fica transparente
+  if (overlayLoading) return null;
 
-  if (error) return <div className="text-sm text-red-600">{error}</div>;
-
-  if (!visible || !currentAd || !currentAsset || !currentUrl)
-    return (
-      <div className="w-full h-[calc(100vh-80px)] flex items-center justify-center">
-        <Spinner className="h-16 w-16" />
-      </div>
-    );
+  if (error)
+    return <div className="text-sm text-red-600">{error}</div>;
 
   return (
     <div className="w-screen h-screen overflow-hidden flex items-center justify-center">
-      {currentAd.type === "IMAGE" ? (
+      {currentAd?.type === "IMAGE" ? (
         <img
           src={currentUrl}
-          alt={`Ad ${currentAd.advertisementId}`}
+          alt={`Ad ${currentAd?.advertisementId}`}
           className="w-full h-full object-contain"
           onError={nextAsset}
         />
