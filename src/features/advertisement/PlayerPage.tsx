@@ -1,6 +1,6 @@
 // PlayerPage.tsx
 import { useCallback, useEffect, useState } from "react";
-import OverlayController from "../../components/OverlayController";
+import OverlayController from "../../components/overlay/OverlayController";
 import { Advertisement } from "./Advertisement";
 import { loadAppConfig } from "../../services/iniConfig";
 
