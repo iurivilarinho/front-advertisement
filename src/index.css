@@ -275,6 +275,11 @@ body.overlay-hidden #root {
   background: transparent !important;
 }
 
+body.overlay-cursor-hidden,
+body.overlay-cursor-hidden * {
+  cursor: none !important;
+}
+
 /* =========================
    WEBKIT AUTOFILL
    ========================= */
